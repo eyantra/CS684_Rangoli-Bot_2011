@@ -1,0 +1,136 @@
+module rangoli:
+	input IS_DRAW:integer, MOTOR_SHAFT_LEFT:integer, MAX_ROW:integer, MAX_COLUMN:integer, GET_COLOR:integer, GET_LENGTH:integer, IS_FWD:integer,BOT_MOVE:integer,MOVEMENT_STATE:integer;
+	output MOVE_SOFT_RIGHT,MOVE_FWD,MOVE_REV,MOTOR_LEFT_SPEED:integer,MOTOR_RIGHT_SPEED:integer, SERVO_A_ON:integer,SERVO_A_OFF:integer, SERVO_B_ON:integer,SERVO_B_OFF:integer, SERVO_C_ON:integer,SERVO_C_OFF:integer, DELAY:integer, SET_SHAFT_L,SET_BOT_MOVE,SET_MOVEMENT_STATE, INCREASE_CELL_COUNT, SET_ROW;
+	emit SERVO_A_OFF(160);		% Servo A set at 160 degree which is used at off state of the Valve.
+	emit SERVO_B_OFF(160);		% Servo B set at 160 degree which is used at off state of the Valve.
+	emit SERVO_C_OFF(160);		% Servo C set at 160 degree which is used at off state of the Valve.
+	loop
+		[await IS_DRAW];		% Indicated whether the bot will draw the current row or wait for the instruction from the camera.
+		[await MOTOR_SHAFT_LEFT];	% Indicates the value of the left shaft counter value.
+		[await MAX_ROW];		% Indicates whether drawing is finished or not.
+		[await MAX_COLUMN];		% Indicates whether drawing a row is finished or not.
+		[await GET_COLOR];		% Indicates the color value of the current segment.
+		[await GET_LENGTH];		% Indicate the length of the current segment.
+		[await IS_FWD];			% Indicate the movement of the bot while drawing a row.
+		[await BOT_MOVE];		% Indicate the movement of the bot while in the control of the camera.
+		[await MOVEMENT_STATE];		% Indicate the state f the bot whether to draw or to listen to the camera.
+
+		var is_Draw:integer , isFwd:integer, dist:integer , isDrawingFinished:integer, isRowFinished:integer, color:integer, length:integer, move_bot:integer, state_movement:integer in
+		isDrawingFinished:=?MAX_ROW;
+		is_Draw:=?IS_DRAW;
+		dist:=?MOTOR_SHAFT_LEFT;
+		isRowFinished:=?MAX_COLUMN;
+		color:=?GET_COLOR;
+		length:=?GET_LENGTH;
+		isFwd:=?IS_FWD;
+		move_bot:=?BOT_MOVE;
+		state_movement:=?MOVEMENT_STATE;
+		if is_Draw=1 then
+			if isDrawingFinished=0 then
+				if isRowFinished=0 then
+					if dist<(3*length) then
+						if color = 1 then
+							emit SERVO_A_ON(145);	% Servo A set at 145 degree which is used at on state of the Valve.
+						else
+							emit SERVO_A_OFF(160);	% Servo A set at 160 degree which is used at off state of the Valve.
+						end;
+						if isFwd=1 then
+							emit MOVE_REV;		% Move the bot in forward direction.
+						else
+							emit MOVE_FWD;		% Move the bot in the backward direction.
+						end;
+						emit MOTOR_LEFT_SPEED(110);	% determine the speed of the left wheel.
+						emit MOTOR_RIGHT_SPEED(110);	% determine the speed of the right wheel.
+			
+					else
+						if isFwd=1 then
+							emit MOVE_REV;		% Move the bot in forward direction.
+						else
+							emit MOVE_FWD;		% Move the bot in the backward direction.
+						end;
+						emit MOTOR_LEFT_SPEED(0);
+						emit MOTOR_RIGHT_SPEED(0);
+						emit SET_SHAFT_L;		% Set the value of the laft shatf counter to 0
+						emit INCREASE_CELL_COUNT;	% Increase the cell count of the color and length array.
+						emit DELAY(2000);		% Insert delay			
+					end;
+		
+				else
+						emit SERVO_A_OFF(160);		% Servo A set at 160 degree which is used at off state of the Valve.
+						emit DELAY(8000);
+						if state_movement=0 then
+							if dist<20 then				% turn the bot towards right at the end of a row.
+								emit MOVE_FWD;
+								emit MOTOR_LEFT_SPEED(150);
+								emit MOTOR_RIGHT_SPEED(0);
+							else
+								emit MOVE_FWD;
+								emit MOTOR_LEFT_SPEED(0);
+								emit MOTOR_RIGHT_SPEED(0);
+								if dist<27 then				% move the bot little forward after it turned to the right.
+									emit MOVE_FWD;
+									emit MOTOR_LEFT_SPEED(150);
+									emit MOTOR_RIGHT_SPEED(150);
+								else
+									emit MOVE_FWD;
+									emit MOTOR_LEFT_SPEED(0);
+									emit MOTOR_RIGHT_SPEED(0);
+									emit SET_SHAFT_L;
+									emit SET_MOVEMENT_STATE;
+									emit DELAY(8000);
+									
+								end;	
+								
+							end;	
+						end;
+						if state_movement=1 then
+							if dist<1 then
+								if move_bot=1 then			% move the bot to the right
+									emit MOVE_FWD;
+									emit MOTOR_LEFT_SPEED(150);
+									emit MOTOR_RIGHT_SPEED(0);
+								end;
+								if move_bot=2 then			% move the bot to the left
+									emit MOVE_REV;
+									emit MOTOR_LEFT_SPEED(150);
+									emit MOTOR_RIGHT_SPEED(0);
+								end;
+								if move_bot=3 then			% move the bot forward.
+									emit MOVE_FWD;
+									emit MOTOR_LEFT_SPEED(150);
+									emit MOTOR_RIGHT_SPEED(150);
+								end;
+								if move_bot=4 then			% move the bot backward.
+									emit MOVE_REV;
+									emit MOTOR_LEFT_SPEED(150);
+									emit MOTOR_RIGHT_SPEED(150);
+								end;
+								if move_bot=5 then			% bot is in position let it draw the next line.
+									emit SET_MOVEMENT_STATE;	% set the movement status.
+									emit SET_SHAFT_L;		% set the left shaft counter.
+									emit SET_BOT_MOVE;		% set the botMove
+									emit SET_ROW;			% set the column value to 0.
+								end;
+							else
+								emit MOVE_FWD;
+								emit MOTOR_LEFT_SPEED(0);
+								emit MOTOR_RIGHT_SPEED(0);
+								emit SET_SHAFT_L;
+								emit SET_BOT_MOVE;
+							end;	
+						end;								
+				end;
+			
+			else
+				if isFwd=0 then
+					emit MOVE_FWD;
+				else
+					emit MOVE_REV;
+				end;
+				emit MOTOR_LEFT_SPEED(0);
+				emit MOTOR_RIGHT_SPEED(0);
+			end; 
+		end;
+		end var;
+	end
+end module					% End of module
